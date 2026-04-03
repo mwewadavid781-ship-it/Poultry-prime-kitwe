@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Farmer Portal — Poultry Prime Kitwe</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            forest:'#013220','forest-mid':'#024a31','forest-light':'#035c3d',
+            'forest-pale':'#e8f5ee',gold:'#c8a84b','gold-light':'#e2c97e',cream:'#fdfaf4'
+          },
+          fontFamily:{display:['Playfair Display','serif'],body:['DM Sans','sans-serif']}
+        }
+      }
+    }
+  </script>
+  <style>
+    *{box-sizing:border-box} body{font-family:'DM Sans',sans-serif;background:#fdfaf4;min-height:100vh}
+    .hero-bg{background:linear-gradient(160deg,#013220 0%,#024a31 55%,#01261a 100%)}
+    .form-label{display:block;font-size:.8rem;font-weight:600;color:#013220;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
+    .form-input{width:100%;padding:13px 16px;border:1.5px solid #c8d8cf;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;color:#1a1a1a;background:#fff;outline:none;transition:border-color .2s}
+    .form-input:focus{border-color:#013220;box-shadow:0 0 0 3px rgba(1,50,32,.08)}
+    .btn-primary{background:linear-gradient(135deg,#013220,#024a31);color:#fff;border:none;border-radius:12px;padding:14px 24px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:1rem;cursor:pointer;width:100%;transition:opacity .2s}
+    .btn-primary:hover{opacity:.88}
+    .btn-primary:disabled{background:#9ca3af;cursor:not-allowed}
+    .btn-danger{background:#fee2e2;color:#dc2626;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
+    .btn-danger:hover{background:#fecaca}
+    .btn-toggle{background:#e8f5ee;color:#013220;border:none;border-radius:8px;padding:8px 14px;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .2s}
+    .btn-toggle:hover{background:#d1e8db}
+    .batch-row{background:#fff;border:1px solid #d1e8db;border-radius:16px;padding:16px}
+    .tab{padding:10px 18px;border-radius:10px;font-weight:600;font-size:.9rem;cursor:pointer;transition:all .2s;border:none;background:transparent;color:#6b7280}
+    .tab.active{background:#013220;color:#fff}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:#013220;color:#fff;padding:12px 20px;border-radius:12px;font-size:.9rem;font-weight:500;z-index:9999;transition:transform .3s ease;white-space:nowrap}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .fade-up{animation:fadeUp .5s ease both}
+    #login-section, #dashboard-section{transition:opacity .3s}
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="hero-bg px-5 py-4 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    <span class="text-2xl">🐓</span>
+    <div>
+      <p class="font-display text-white font-bold text-base leading-tight">Poultry Prime</p>
+      <p class="text-xs text-gold-light tracking-widest uppercase">Farmer Portal · Kitwe</p>
+    </div>
+  </div>
+  <button id="logout-btn" onclick="logout()" class="hidden text-xs text-white/60 hover:text-white border border-white/20 px-3 py-1.5 rounded-full transition">Sign Out</button>
+</nav>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="login-section" class="max-w-sm mx-auto px-5 py-16 fade-up">
+  <div class="text-center mb-8">
+    <span class="text-4xl">🌿</span>
+    <h1 class="font-display text-forest text-2xl font-bold mt-3">Farmer Login</h1>
+    <p class="text-gray-500 text-sm mt-2">Sign in to manage your live batches</p>
+  </div>
+  <div class="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+    <div class="flex flex-col gap-4">
+      <div>
+        <label class="form-label" for="login-email">Email Address</label>
+        <input class="form-input" id="login-email" type="email" placeholder="you@farm.com"/>
+      </div>
+      <div>
+        <label class="form-label" for="login-password">Password</label>
+        <input class="form-input" id="login-password" type="password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter') doLogin()"/>
+      </div>
+    </div>
+    <button class="btn-primary mt-6" id="login-btn" onclick="doLogin()">Sign In</button>
+    <div class="mt-4 text-center">
+      <button onclick="toggleMode()" id="mode-toggle" class="text-sm text-forest underline underline-offset-2">Don't have an account? Register</button>
+    </div>
+    <p id="login-error" class="text-red-500 text-sm text-center mt-3 hidden"></p>
+  </div>
+  <p class="text-center text-xs text-gray-400 mt-6">
+    <a href="index.html" class="hover:text-gray-600">← Back to buyer app</a>
+  </p>
+</div>
+
+<!-- ══════════ DASHBOARD ══════════ -->
+<div id="dashboard-section" class="hidden max-w-lg mx-auto px-4 py-8">
+
+  <!-- Welcome bar -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h2 class="font-display text-forest text-xl font-bold">My Dashboard</h2>
+      <p class="text-sm text-gray-500" id="dash-email">Loading...</p>
+    </div>
+    <span class="text-2xl">🌾</span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex gap-2 mb-6 bg-gray-100 p-1 rounded-xl">
+    <button class="tab active flex-1" id="tab-add" onclick="switchTab('add')">+ Add Batch</button>
+    <button class="tab flex-1" id="tab-my" onclick="switchTab('my')">My Batches</button>
+  </div>
+
+  <!-- ── ADD BATCH FORM ── -->
+  <div id="panel-add" class="fade-up">
+    <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+      <h3 class="font-display text-forest font-bold text-lg mb-4">List a New Batch</h3>
+      <div class="flex flex-col gap-4">
+        <div>
+          <label class="form-label">Farm Name</label>
+          <input class="form-input" id="f-farm" type="text" placeholder="e.g. Riverside Farm"/>
+        </div>
+        <div>
+          <label class="form-label">Location</label>
+          <input class="form-input" id="f-location" type="text" placeholder="e.g. Riverside, Kitwe"/>
+        </div>
+        <div>
+          <label class="form-label">Bird Breed</label>
+          <select class="form-input" id="f-breed">
+            <option value="">Select breed...</option>
+            <option>Broiler (5-week)</option>
+            <option>Broiler (6-week)</option>
+            <option>Village Chicken</option>
+            <option>Layers (spent)</option>
+            <option>Cockerel</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">Qty Available</label>
+            <input class="form-input" id="f-qty" type="number" min="1" placeholder="e.g. 100"/>
+          </div>
+          <div>
+            <label class="form-label">Price / Bird (K)</label>
+            <input class="form-input" id="f-price" type="number" min="1" placeholder="e.g. 85"/>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Ready Date</label>
+          <input class="form-input" id="f-date" type="date"/>
+        </div>
+        <div>
+          <label class="form-label">Your WhatsApp (for buyer alerts)</label>
+          <input class="form-input" id="f-wa" type="tel" placeholder="+260 97 ..."/>
+        </div>
+      </div>
+      <button class="btn-primary mt-5" id="add-btn" onclick="addBatch()">
+        🚀 List My Batch
+      </button>
+    </div>
+  </div>
+
+  <!-- ── MY BATCHES ── -->
+  <div id="panel-my" class="hidden">
+    <div id="my-batches-list" class="flex flex-col gap-3">
+      <div class="text-center text-gray-400 text-sm py-8">Loading your batches...</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ════════════════════════════════════════════════
+  // 🔴 REPLACE WITH YOUR ACTUAL SUPABASE VALUES
+  // ════════════════════════════════════════════════
+  const SUPABASE_URL = 'https://wirhapusdicoefmgdzyk.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpcmhhcHVzZGljb2VmbWdkenlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjg3NzYsImV4cCI6MjA5MDgwNDc3Nn0.hBetgNjhr83fquQD_LgZ6YFArJ_8bTAjEF9UU5NlPiU';
+  // ════════════════════════════════════════════════
+
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let currentUser = null;
+  let isRegisterMode = false;
+
+  // ── Toast ────────────────────────────────────────
+  function showToast(msg, duration = 3000) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+  }
+
+  // ── Auth mode toggle ────────────────────────────
+  function toggleMode() {
+    isRegisterMode = !isRegisterMode;
+    document.getElementById('login-btn').textContent = isRegisterMode ? 'Create Account' : 'Sign In';
+    document.getElementById('mode-toggle').textContent = isRegisterMode
+      ? 'Already have an account? Sign In'
+      : "Don't have an account? Register";
+    document.getElementById('login-error').classList.add('hidden');
+  }
+
+  // ── Login / Register ────────────────────────────
+  async function doLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const errEl = document.getElementById('login-error');
+    const btn = document.getElementById('login-btn');
+
+    if (!email || !password) { showErr('Please enter email and password.'); return; }
+
+    btn.disabled = true;
+    btn.textContent = isRegisterMode ? 'Creating...' : 'Signing in...';
+    errEl.classList.add('hidden');
+
+    let result;
+    if (isRegisterMode) {
+      result = await db.auth.signUp({ email, password });
+      if (!result.error) showToast('✅ Account created! Check email to confirm, then log in.');
+    } else {
+      result = await db.auth.signInWithPassword({ email, password });
+    }
+
+    btn.disabled = false;
+    btn.textContent = isRegisterMode ? 'Create Account' : 'Sign In';
+
+    if (result.error) { showErr(result.error.message); return; }
+    if (result.data?.user) enterDashboard(result.data.user);
+  }
+
+  function showErr(msg) {
+    const e = document.getElementById('login-error');
+    e.textContent = msg; e.classList.remove('hidden');
+  }
+
+  // ── Dashboard ────────────────────────────────────
+  function enterDashboard(user) {
+    currentUser = user;
+    document.getElementById('login-section').classList.add('hidden');
+    document.getElementById('dashboard-section').classList.remove('hidden');
+    document.getElementById('logout-btn').classList.remove('hidden');
+    document.getElementById('dash-email').textContent = user.email;
+    loadMyBatches();
+  }
+
+  async function logout() {
+    await db.auth.signOut();
+    currentUser = null;
+    document.getElementById('login-section').classList.remove('hidden');
+    document.getElementById('dashboard-section').classList.add('hidden');
+    document.getElementById('logout-btn').classList.add('hidden');
+  }
+
+  // ── Tabs ─────────────────────────────────────────
+  function switchTab(tab) {
+    document.getElementById('panel-add').classList.toggle('hidden', tab !== 'add');
+    document.getElementById('panel-my').classList.toggle('hidden', tab !== 'my');
+    document.getElementById('tab-add').classList.toggle('active', tab === 'add');
+    document.getElementById('tab-my').classList.toggle('active', tab === 'my');
+    if (tab === 'my') loadMyBatches();
+  }
+
+  // ── Add Batch ────────────────────────────────────
+  async function addBatch() {
+    const farm     = document.getElementById('f-farm').value.trim();
+    const location = document.getElementById('f-location').value.trim();
+    const breed    = document.getElementById('f-breed').value;
+    const qty      = parseInt(document.getElementById('f-qty').value);
+    const price    = parseFloat(document.getElementById('f-price').value);
+    const date     = document.getElementById('f-date').value;
+    const wa       = document.getElementById('f-wa').value.trim();
+
+    if (!farm || !location || !breed || !qty || !price || !date) {
+      showToast('⚠️ Please fill in all required fields'); return;
+    }
+
+    const btn = document.getElementById('add-btn');
+    btn.disabled = true; btn.textContent = 'Listing...';
+
+    const { error } = await db.from('batches').insert({
+      farmer_id: currentUser.id,
+      farmer_email: currentUser.email,
+      farm_name: farm,
+      location,
+      breed,
+      quantity_available: qty,
+      quantity_total: qty,
+      price_per_bird: price,
+      ready_date: date,
+      farmer_whatsapp: wa.replace(/\s+/g, '').replace('+', ''),
+      active: true,
+    });
+
+    btn.disabled = false; btn.textContent = '🚀 List My Batch';
+
+    if (error) { showToast('❌ Failed to add batch: ' + error.message); return; }
+
+    showToast('✅ Batch listed! Buyers can see it now.');
+    ['f-farm','f-location','f-qty','f-price','f-date','f-wa'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-breed').value = '';
+    switchTab('my');
+  }
+
+  // ── My Batches ────────────────────────────────────
+  async function loadMyBatches() {
+    if (!currentUser) return;
+    const { data, error } = await db
+      .from('batches')
+      .select('*')
+      .eq('farmer_id', currentUser.id)
+      .order('created_at', { ascending: false });
+
+    const container = document.getElementById('my-batches-list');
+    if (error || !data?.length) {
+      container.innerHTML = `<div class="text-center text-gray-400 text-sm py-8">No batches yet. Add your first one!</div>`;
+      return;
+    }
+
+    container.innerHTML = data.map(b => {
+      const pct = Math.round((b.quantity_available / b.quantity_total) * 100);
+      const readyDate = new Date(b.ready_date).toLocaleDateString('en-ZM',{day:'numeric',month:'short',year:'numeric'});
+      const statusColor = b.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
+      const statusLabel = b.active ? '● Live' : '○ Paused';
+      return `
+      <div class="batch-row">
+        <div class="flex items-start justify-between gap-2 mb-3">
+          <div>
+            <p class="font-display text-forest font-bold text-base">${b.farm_name}</p>
+            <p class="text-xs text-gray-400">📍 ${b.location} · ${b.breed}</p>
+          </div>
+          <span class="text-xs font-semibold px-2 py-1 rounded-full ${statusColor} whitespace-nowrap">${statusLabel}</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 text-center mb-3">
+          <div class="bg-forest-pale rounded-lg py-2">
+            <p class="text-forest font-bold text-base">${b.quantity_available}</p>
+            <p class="text-xs text-gray-400">Left</p>
+          </div>
+          <div class="bg-forest-pale rounded-lg py-2">
+            <p class="text-forest font-bold text-base">K${b.price_per_bird}</p>
+            <p class="text-xs text-gray-400">/ bird</p>
+          </div>
+          <div class="bg-forest-pale rounded-lg py-2">
+            <p class="text-forest font-bold text-sm">${readyDate}</p>
+            <p class="text-xs text-gray-400">Ready</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn-toggle flex-1" onclick="toggleBatch('${b.id}', ${!b.active})">
+            ${b.active ? '⏸ Pause' : '▶ Resume'}
+          </button>
+          <button class="btn-danger flex-1" onclick="deleteBatch('${b.id}')">🗑 Delete</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function toggleBatch(id, newState) {
+    await db.from('batches').update({ active: newState }).eq('id', id);
+    showToast(newState ? '✅ Batch is now Live' : '⏸ Batch paused');
+    loadMyBatches();
+  }
+
+  async function deleteBatch(id) {
+    if (!confirm('Delete this batch? This cannot be undone.')) return;
+    await db.from('batches').delete().eq('id', id);
+    showToast('🗑 Batch deleted');
+    loadMyBatches();
+  }
+
+  // ── Auto-login if session exists ──────────────────
+  db.auth.getSession().then(({ data }) => {
+    if (data?.session?.user) enterDashboard(data.session.user);
+  });
+</script>
+</body>
+</html>
