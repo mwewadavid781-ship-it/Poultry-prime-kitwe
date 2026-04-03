@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Poultry Prime Kitwe</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            forest: '#013220', 'forest-mid': '#024a31', 'forest-light': '#035c3d',
+            'forest-pale': '#e8f5ee', gold: '#c8a84b', 'gold-light': '#e2c97e', cream: '#fdfaf4',
+          },
+          fontFamily: { display: ['Playfair Display','serif'], body: ['DM Sans','sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    *{box-sizing:border-box} body{font-family:'DM Sans',sans-serif;background:#fdfaf4}
+    .hero-bg{background:linear-gradient(160deg,#013220 0%,#024a31 55%,#01261a 100%);position:relative;overflow:hidden}
+    .hero-bg::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle at 80% 20%,rgba(200,168,75,.12) 0%,transparent 50%),radial-gradient(circle at 10% 80%,rgba(200,168,75,.08) 0%,transparent 40%)}
+    .grain{position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");opacity:.4;pointer-events:none}
+    .badge{display:inline-flex;align-items:center;gap:6px;background:rgba(200,168,75,.15);border:1px solid rgba(200,168,75,.4);color:#e2c97e;padding:6px 14px;border-radius:999px;font-size:.75rem;font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+    .batch-card{background:#fff;border:1px solid #d1e8db;border-radius:18px;overflow:hidden;transition:transform .25s ease,box-shadow .25s ease}
+    .batch-card:hover{transform:translateY(-4px);box-shadow:0 16px 48px rgba(1,50,32,.12)}
+    .availability-bar{height:6px;border-radius:999px;background:#e8f5ee;overflow:hidden}
+    .availability-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#013220,#035c3d);transition:width 1s ease}
+    .btn-reserve{background:linear-gradient(135deg,#013220 0%,#024a31 100%);color:#fff;border:none;border-radius:12px;padding:14px 24px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:.95rem;cursor:pointer;width:100%;transition:opacity .2s,transform .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+    .btn-reserve:hover{opacity:.88;transform:scale(.99)}
+    .btn-reserve:disabled{background:#9ca3af;cursor:not-allowed;transform:none}
+    .modal-overlay{position:fixed;inset:0;z-index:999;background:rgba(1,26,16,.65);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s ease}
+    .modal-overlay.active{opacity:1;pointer-events:all}
+    .modal-sheet{background:#fdfaf4;border-radius:24px 24px 0 0;padding:28px 24px 40px;width:100%;max-width:480px;transform:translateY(100%);transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+    .modal-overlay.active .modal-sheet{transform:translateY(0)}
+    .modal-handle{width:40px;height:4px;background:#c8d8cf;border-radius:999px;margin:0 auto 20px}
+    .form-label{display:block;font-size:.8rem;font-weight:600;color:#013220;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}
+    .form-input{width:100%;padding:13px 16px;border:1.5px solid #c8d8cf;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:1rem;color:#1a1a1a;background:#fff;outline:none;transition:border-color .2s}
+    .form-input:focus{border-color:#013220;box-shadow:0 0 0 3px rgba(1,50,32,.08)}
+    .btn-whatsapp{background:#25D366;color:#fff;border:none;border-radius:14px;padding:16px 24px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:10px;transition:background .2s,transform .15s;margin-top:24px}
+    .btn-whatsapp:hover{background:#1ebe5d;transform:scale(.99)}
+    .btn-whatsapp:disabled{background:#9ca3af;cursor:not-allowed;transform:none}
+    .step-num{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#013220,#035c3d);color:#e2c97e;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;flex-shrink:0}
+    .footer-bg{background:linear-gradient(135deg,#013220 0%,#011a10 100%)}
+    .skeleton{background:linear-gradient(90deg,#e8f5ee 25%,#d1e8db 50%,#e8f5ee 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:12px}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+    .fade-up{animation:fadeUp .6s ease both}
+    .fade-up-1{animation-delay:.1s}.fade-up-2{animation-delay:.22s}.fade-up-3{animation-delay:.34s}.fade-up-4{animation-delay:.46s}
+    @keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
+    .live-dot{animation:pulse-dot 1.6s ease infinite}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:#013220;color:#fff;padding:12px 20px;border-radius:12px;font-size:.9rem;font-weight:500;z-index:9999;transition:transform .3s ease;white-space:nowrap}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+  </style>
+</head>
+<body class="bg-cream">
+
+<!-- NAV -->
+<nav class="hero-bg sticky top-0 z-50 px-5 py-4 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    <span class="text-2xl">🐓</span>
+    <div>
+      <p class="font-display text-white font-bold text-base leading-tight">Poultry Prime</p>
+      <p class="text-xs font-body text-gold-light tracking-widest uppercase">Kitwe</p>
+    </div>
+  </div>
+  <a href="#batches" class="badge text-xs">Live Batches ↓</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero-bg px-5 pt-14 pb-20 relative">
+  <div class="grain"></div>
+  <div class="relative z-10 max-w-lg mx-auto text-center">
+    <span class="badge fade-up fade-up-1">
+      <span class="live-dot w-2 h-2 rounded-full bg-gold inline-block"></span>
+      Live Pre-Orders Open
+    </span>
+    <h1 class="font-display text-white text-4xl leading-tight mt-5 fade-up fade-up-2">
+      Fresh Kitwe Poultry —<br/><span class="text-gold-light italic">Reserved for You</span>
+    </h1>
+    <p class="font-body text-green-100 text-base mt-4 leading-relaxed fade-up fade-up-3 opacity-80">
+      Skip the market rush. Reserve directly from Kitwe's finest farms — farm fresh, every batch.
+    </p>
+    <div class="flex gap-3 justify-center mt-8 fade-up fade-up-4 flex-wrap">
+      <a href="#batches" class="bg-gold text-forest font-semibold px-6 py-3 rounded-full text-sm hover:bg-gold-light transition">Browse Live Batches</a>
+      <a href="#how" class="border border-white/30 text-white px-6 py-3 rounded-full text-sm hover:bg-white/10 transition">How It Works</a>
+    </div>
+    <div class="grid grid-cols-3 gap-4 mt-12 border-t border-white/10 pt-8">
+      <div><p class="font-display text-gold text-2xl font-bold" id="stat-farms">—</p><p class="text-white/60 text-xs mt-1">Active Farms</p></div>
+      <div><p class="font-display text-gold text-2xl font-bold">100%</p><p class="text-white/60 text-xs mt-1">Farm Fresh</p></div>
+      <div><p class="font-display text-gold text-2xl font-bold" id="stat-birds">—</p><p class="text-white/60 text-xs mt-1">Birds Available</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- LIVE BATCHES -->
+<section id="batches" class="px-4 py-12 max-w-lg mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h2 class="font-display text-forest text-2xl font-bold">Live Batches</h2>
+      <p class="font-body text-sm text-gray-500 mt-0.5">Updated in real-time · Reserve before stock runs out</p>
+    </div>
+    <div class="flex items-center gap-1.5 text-xs text-green-700 font-semibold bg-forest-pale px-3 py-1.5 rounded-full">
+      <span class="live-dot w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>Live
+    </div>
+  </div>
+  <div id="cards-container" class="flex flex-col gap-4">
+    <!-- Skeleton loaders -->
+    <div class="skeleton h-64 w-full"></div>
+    <div class="skeleton h-64 w-full"></div>
+    <div class="skeleton h-64 w-full"></div>
+  </div>
+  <p id="empty-state" class="hidden text-center text-gray-400 py-12 text-sm">No active batches right now. Check back soon!</p>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="bg-forest px-5 py-12">
+  <div class="max-w-lg mx-auto">
+    <h2 class="font-display text-white text-2xl font-bold text-center mb-8">How It Works</h2>
+    <div class="flex flex-col gap-6">
+      <div class="flex items-start gap-4">
+        <div class="step-num">1</div>
+        <div><p class="font-semibold text-white text-base">Browse Live Batches</p><p class="text-green-200 text-sm mt-1 leading-relaxed">See available stock from farms across Kitwe — updated in real time by the farmers themselves.</p></div>
+      </div>
+      <div class="flex items-start gap-4">
+        <div class="step-num">2</div>
+        <div><p class="font-semibold text-white text-base">Reserve Your Birds</p><p class="text-green-200 text-sm mt-1 leading-relaxed">Tap "Reserve Now", enter your name, quantity, and WhatsApp. Stock is updated instantly.</p></div>
+      </div>
+      <div class="flex items-start gap-4">
+        <div class="step-num">3</div>
+        <div><p class="font-semibold text-white text-base">Confirm on WhatsApp</p><p class="text-green-200 text-sm mt-1 leading-relaxed">You'll be connected to us on WhatsApp to finalize delivery. The farmer is also notified.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer-bg px-5 py-10 text-center">
+  <span class="text-3xl">🐓</span>
+  <p class="font-display text-white text-lg font-bold mt-2">Poultry Prime Kitwe</p>
+  <p class="text-green-300 text-sm mt-1">Farm-to-table. Fresh every day.</p>
+  <a href="farmer-login.html" class="inline-block mt-6 text-white/30 text-xs hover:text-white/60 transition">Farmer Portal →</a>
+  <p class="text-white/20 text-xs mt-3">© 2026 Poultry Prime Kitwe. All rights reserved.</p>
+</footer>
+
+<!-- RESERVE MODAL -->
+<div class="modal-overlay" id="modal" onclick="handleOverlayClick(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="flex items-center gap-3 mb-6">
+      <span class="text-2xl">🐔</span>
+      <div>
+        <p class="font-display text-forest text-lg font-bold" id="modal-farm">Farm Name</p>
+        <p class="text-sm text-gray-500" id="modal-detail">Batch details</p>
+      </div>
+    </div>
+    <div class="flex flex-col gap-4">
+      <div>
+        <label class="form-label" for="input-name">Your Full Name</label>
+        <input class="form-input" id="input-name" type="text" placeholder="e.g. Mwansa Chilufya"/>
+      </div>
+      <div>
+        <label class="form-label" for="input-qty">Quantity (birds)</label>
+        <input class="form-input" id="input-qty" type="number" min="1" placeholder="e.g. 10"/>
+        <p class="text-xs text-gray-400 mt-1" id="qty-hint"></p>
+      </div>
+      <div>
+        <label class="form-label" for="input-wa">Your WhatsApp Number</label>
+        <input class="form-input" id="input-wa" type="tel" placeholder="+260 97 1234567"/>
+      </div>
+    </div>
+    <button class="btn-whatsapp" id="confirm-btn" onclick="confirmReservation()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.558 4.117 1.532 5.845L.057 23.486a.5.5 0 0 0 .614.608l5.807-1.519A11.938 11.938 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.938a9.907 9.907 0 0 1-5.031-1.368l-.361-.214-3.737.979.997-3.645-.235-.375A9.902 9.902 0 0 1 2.062 12C2.062 6.509 6.509 2.062 12 2.062S21.938 6.509 21.938 12 17.491 21.938 12 21.938z"/></svg>
+      Confirm & Reserve
+    </button>
+    <button onclick="closeModal()" class="mt-3 w-full py-3 text-sm text-gray-400 hover:text-gray-600 transition">Cancel</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ═══════════════════════════════════════════════════
+  // 🔴 REPLACE THESE WITH YOUR ACTUAL VALUES
+  // ═══════════════════════════════════════════════════
+  const SUPABASE_URL = 'https://wirhapusdicoefmgdzyk.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndpcmhhcHVzZGljb2VmbWdkenlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMjg3NzYsImV4cCI6MjA5MDgwNDc3Nn0.hBetgNjhr83fquQD_LgZ6YFArJ_8bTAjEF9UU5NlPiU';
+  const PLATFORM_WHATSAPP = '260750109917'; // YOUR number (receives all orders)
+  // ═══════════════════════════════════════════════════
+
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let selectedBatch = null;
+
+  // ── Toast ─────────────────────────────────────────
+  function showToast(msg, duration = 3000) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+  }
+
+  // ── Load & Render Batches ─────────────────────────
+  async function loadBatches() {
+    const { data, error } = await db
+      .from('batches')
+      .select('*')
+      .eq('active', true)
+      .gt('quantity_available', 0)
+      .order('created_at', { ascending: false });
+
+    const container = document.getElementById('cards-container');
+    const empty = document.getElementById('empty-state');
+
+    if (error) {
+      container.innerHTML = `<p class="text-red-500 text-sm text-center py-8">Failed to load batches. Check your Supabase config.</p>`;
+      return;
+    }
+
+    // Update stats
+    const totalBirds = (data || []).reduce((s, b) => s + b.quantity_available, 0);
+    document.getElementById('stat-farms').textContent = (data || []).length;
+    document.getElementById('stat-birds').textContent = totalBirds;
+
+    if (!data || data.length === 0) {
+      container.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    container.innerHTML = data.map(b => renderCard(b)).join('');
+  }
+
+  function renderCard(b) {
+    const pct = Math.round((b.quantity_available / b.quantity_total) * 100);
+    const urgency = b.quantity_available <= 10 ? 'bg-red-50 text-red-700' : b.quantity_available <= 30 ? 'bg-amber-50 text-amber-700' : 'bg-forest-pale text-green-800';
+    const barColor = b.quantity_available <= 10 ? 'background:linear-gradient(90deg,#ef4444,#dc2626)' : 'background:linear-gradient(90deg,#013220,#035c3d)';
+    const readyDate = new Date(b.ready_date).toLocaleDateString('en-ZM', { weekday:'short', day:'numeric', month:'short' });
+
+    return `
+    <div class="batch-card p-5">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 class="font-display text-forest text-lg font-bold leading-tight">${b.farm_name}</h3>
+          <p class="text-xs text-gray-400 mt-0.5">📍 ${b.location}</p>
+        </div>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${urgency} whitespace-nowrap flex-shrink-0">
+          ${b.quantity_available} left
+        </span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="bg-forest-pale rounded-xl px-3 py-2">
+          <p class="text-gray-400 text-xs">Breed</p>
+          <p class="text-forest font-semibold text-sm">${b.breed}</p>
+        </div>
+        <div class="bg-forest-pale rounded-xl px-3 py-2">
+          <p class="text-gray-400 text-xs">Ready Date</p>
+          <p class="text-forest font-semibold text-sm">${readyDate}</p>
+        </div>
+      </div>
+      <div class="mb-1 flex justify-between">
+        <p class="text-xs text-gray-400">Stock availability</p>
+        <p class="text-xs font-semibold text-forest">${pct}%</p>
+      </div>
+      <div class="availability-bar mb-4">
+        <div class="availability-fill" style="width:${pct}%;${barColor}"></div>
+      </div>
+      <p class="text-xs text-gray-400 mb-4">💰 Price: <span class="font-semibold text-forest">K ${b.price_per_bird} / bird</span></p>
+      <button class="btn-reserve" onclick='openModal(${JSON.stringify(b).replace(/'/g,"&#39;")})'>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+        Reserve Now
+      </button>
+    </div>`;
+  }
+
+  // ── Modal ─────────────────────────────────────────
+  function openModal(batch) {
+    selectedBatch = batch;
+    document.getElementById('modal-farm').textContent = batch.farm_name;
+    document.getElementById('modal-detail').textContent = `${batch.breed} · K ${batch.price_per_bird}/bird`;
+    document.getElementById('qty-hint').textContent = `Max available: ${batch.quantity_available} birds`;
+    document.getElementById('input-qty').max = batch.quantity_available;
+    ['input-name','input-qty','input-wa'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('modal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    document.getElementById('modal').classList.remove('active');
+    document.body.style.overflow = '';
+    selectedBatch = null;
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('modal')) closeModal();
+  }
+
+  // ── Reserve → Update DB → WhatsApp ───────────────
+  async function confirmReservation() {
+    const name = document.getElementById('input-name').value.trim();
+    const qty  = parseInt(document.getElementById('input-qty').value.trim());
+    const wa   = document.getElementById('input-wa').value.trim();
+
+    if (!name || !qty || !wa) { showToast('⚠️ Please fill in all fields'); return; }
+    if (qty < 1 || qty > selectedBatch.quantity_available) {
+      showToast(`⚠️ Enter a quantity between 1 and ${selectedBatch.quantity_available}`); return;
+    }
+
+    const btn = document.getElementById('confirm-btn');
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+
+    // 1. Deduct quantity in Supabase
+    const newQty = selectedBatch.quantity_available - qty;
+    const { error } = await db
+      .from('batches')
+      .update({ quantity_available: newQty, active: newQty > 0 })
+      .eq('id', selectedBatch.id);
+
+    if (error) {
+      showToast('❌ Reservation failed. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Confirm & Reserve';
+      return;
+    }
+
+    // 2. Log reservation
+    await db.from('reservations').insert({
+      batch_id: selectedBatch.id,
+      farm_name: selectedBatch.farm_name,
+      buyer_name: name,
+      buyer_whatsapp: wa,
+      quantity: qty,
+      price_per_bird: selectedBatch.price_per_bird,
+      total_price: qty * selectedBatch.price_per_bird,
+    });
+
+    closeModal();
+    await loadBatches(); // refresh cards
+
+    // 3. Build WhatsApp message → to PLATFORM owner
+    const readyDate = new Date(selectedBatch.ready_date).toLocaleDateString('en-ZM',{weekday:'short',day:'numeric',month:'short'});
+    const msg =
+      `🐓 *NEW RESERVATION — Poultry Prime Kitwe*\n\n` +
+      `👤 *Buyer:* ${name}\n` +
+      `📱 *Their WhatsApp:* ${wa}\n` +
+      `🏡 *Farm:* ${selectedBatch.farm_name} (${selectedBatch.location})\n` +
+      `🐔 *Breed:* ${selectedBatch.breed}\n` +
+      `🔢 *Quantity:* ${qty} bird(s)\n` +
+      `💰 *Price:* K ${selectedBatch.price_per_bird}/bird\n` +
+      `💵 *Total:* K ${qty * selectedBatch.price_per_bird}\n` +
+      `📅 *Ready:* ${readyDate}\n\n` +
+      `_Please coordinate delivery with the buyer._`;
+
+    // 4. Open WhatsApp → platform owner
+    setTimeout(() => {
+      window.open(`https://wa.me/${PLATFORM_WHATSAPP}?text=${encodeURIComponent(msg)}`, '_blank');
+    }, 400);
+
+    showToast('✅ Reserved! Opening WhatsApp...', 4000);
+
+    // 5. Also open farmer's WhatsApp if they provided a number
+    if (selectedBatch.farmer_whatsapp) {
+      const farmerMsg =
+        `🐓 *NEW RESERVATION on your batch!*\n\n` +
+        `👤 *Buyer:* ${name}\n` +
+        `📱 *Buyer WhatsApp:* ${wa}\n` +
+        `🔢 *Quantity:* ${qty} bird(s)\n` +
+        `💵 *Total:* K ${qty * selectedBatch.price_per_bird}\n` +
+        `📅 *Ready Date:* ${readyDate}\n\n` +
+        `_Poultry Prime Kitwe will coordinate delivery details._`;
+      setTimeout(() => {
+        window.open(`https://wa.me/${selectedBatch.farmer_whatsapp}?text=${encodeURIComponent(farmerMsg)}`, '_blank');
+      }, 1200);
+    }
+  }
+
+  // ── Real-time subscription ────────────────────────
+  db.channel('batches-live')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'batches' }, () => loadBatches())
+    .subscribe();
+
+  // ── Init ──────────────────────────────────────────
+  loadBatches();
+</script>
+</body>
+</html>
