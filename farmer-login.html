@@ -187,12 +187,40 @@ async function loadBatches(){
   var el=document.getElementById('blist');
   if(r.error||!r.data||!r.data.length){el.innerHTML='<p style="color:#6b7280;text-align:center;padding:30px 0">No batches yet. Add your first one!</p>';return}
   el.innerHTML=r.data.map(function(b){
-    return '<div class="batch"><h3>'+b.farm_name+'</h3><p>📍 '+b.location+' · '+b.breed+'</p><p>'+b.quantity_available+' birds · K'+b.price_per_bird+'/bird · '+(b.active?'<span style="color:#4ade80">Live</span>':'<span style="color:#6b7280">Paused</span>')+'</p><div class="row"><button class="sm-btn" style="background:#1a2f22;color:#4ade80;border:1px solid #2a4a38" onclick="toggleB(\''+b.id+'\','+!b.active+')">'+(b.active?'⏸ Pause':'▶ Resume')+'</button><button class="sm-btn" style="background:#2a0a0a;color:#f87171;border:1px solid #7f1d1d" onclick="deleteB(\''+b.id+'\')">🗑 Delete</button></div></div>';
+    return '<div class="batch">'+
+      '<h3>'+b.farm_name+'</h3>'+
+      '<p>📍 '+b.location+' · '+b.breed+'</p>'+
+      '<p>'+b.quantity_available+' birds · K'+b.price_per_bird+'/bird · '+(b.active?'<span style="color:#4ade80">● Live</span>':'<span style="color:#6b7280">○ Paused</span>')+'</p>'+
+      '<div class="row">'+
+        '<button class="sm-btn" style="background:#1a2f22;color:#4ade80;border:1px solid #2a4a38" onclick="toggleB(\''+b.id+'\','+!b.active+')">'+(b.active?'⏸ Pause':'▶ Resume')+'</button>'+
+        '<button class="sm-btn" style="background:#0a1a2f;color:#60a5fa;border:1px solid #1e3a5f" onclick="editB(\''+b.id+'\')">✏️ Edit</button>'+
+        '<button class="sm-btn" style="background:#2a0a0a;color:#f87171;border:1px solid #7f1d1d" onclick="deleteB(\''+b.id+'\')">🗑 Delete</button>'+
+      '</div>'+
+    '</div>';
   }).join('');
 }
 
 async function toggleB(id,state){await S.from('batches').update({active:state}).eq('id',id);toast(state?'Batch is Live!':'Batch paused');loadBatches()}
-async function deleteB(id){if(!confirm('Delete this batch?'))return;await S.from('batches').delete().eq('id',id);toast('Deleted');loadBatches()}
+async function deleteB(id){
+  if(!confirm('Delete this batch? Cannot be undone.'))return;
+  var r=await S.from('batches').delete().eq('id',id);
+  if(r.error){toast('Delete failed: '+r.error.message);return}
+  toast('Batch deleted!');loadBatches();
+}
+async function editB(id){
+  var r=await S.from('batches').select('*').eq('id',id).single();
+  if(r.error){toast('Could not load batch');return}
+  var b=r.data;
+  var q=prompt('Quantity available (current: '+b.quantity_available+'):',b.quantity_available);
+  if(q===null)return;
+  var p=prompt('Price per bird in K (current: '+b.price_per_bird+'):',b.price_per_bird);
+  if(p===null)return;
+  var d=prompt('Ready date YYYY-MM-DD (current: '+b.ready_date+'):',b.ready_date);
+  if(d===null)return;
+  var upd=await S.from('batches').update({quantity_available:parseInt(q),price_per_bird:parseFloat(p),ready_date:d,active:parseInt(q)>0}).eq('id',id);
+  if(upd.error){toast('Update failed: '+upd.error.message);return}
+  toast('Batch updated successfully!');loadBatches();
+}
 
 S.auth.getSession().then(function(r){if(r.data&&r.data.session&&r.data.session.user){U=r.data.session.user;showDash()}});
 </script>
