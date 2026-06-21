@@ -138,7 +138,11 @@ async function doAuth(){
   btn.disabled=true;
   btn.textContent=reg?'Creating...':'Signing in...';
   try{
-    var r=reg?await S.auth.signUp({email:email,password:pass}):await S.auth.signInWithPassword({email:email,password:pass});
+    var authPromise = reg?S.auth.signUp({email:email,password:pass}):S.auth.signInWithPassword({email:email,password:pass});
+    var timeoutPromise = new Promise(function(resolve){
+      setTimeout(function(){ resolve({error:{message:'Request timed out. Check your internet and try again.'}}); }, 15000);
+    });
+    var r = await Promise.race([authPromise, timeoutPromise]);
     if(r.error){err(r.error.message);btn.disabled=false;btn.textContent=reg?'Create Account':'Sign In';return}
     if(r.data&&r.data.user){U=r.data.user;showDash()}
   }catch(e){err('Connection error: '+e.message);btn.disabled=false;btn.textContent=reg?'Create Account':'Sign In'}
@@ -173,7 +177,16 @@ async function addBatch(){
   if(!farm||!loc||!breed||!qty||!price||!date){toast('Please fill in all required fields');return}
   var btn=document.getElementById('add-btn');
   btn.disabled=true;btn.textContent='Listing...';
-  var r=await S.from('batches').insert({farmer_id:U.id,farmer_email:U.email,farm_name:farm,location:loc,breed:breed,quantity_available:qty,quantity_total:qty,price_per_bird:price,ready_date:date,farmer_whatsapp:wa.replace(/\s+/g,'').replace('+',''),active:true});
+  var r;
+  try{
+    var insertPromise = S.from('batches').insert({farmer_id:U.id,farmer_email:U.email,farm_name:farm,location:loc,breed:breed,quantity_available:qty,quantity_total:qty,price_per_bird:price,ready_date:date,farmer_whatsapp:wa.replace(/\s+/g,'').replace('+',''),active:true});
+    var timeoutPromise = new Promise(function(resolve){
+      setTimeout(function(){ resolve({error:{message:'Timed out. Check your internet and try again.'}}); }, 15000);
+    });
+    r = await Promise.race([insertPromise, timeoutPromise]);
+  }catch(e){
+    r = {error:{message:e.message}};
+  }
   btn.disabled=false;btn.textContent='🚀 List My Batch';
   if(r.error){toast('Error: '+r.error.message);return}
   toast('Batch listed! Buyers can see it now!');
@@ -182,10 +195,21 @@ async function addBatch(){
   goTab(2);
 }
 
-async function loadBatches(){
-  var r=await S.from('batches').select('*').eq('farmer_id',U.id).order('created_at',{ascending:false});
+async function loadBatches(retryCount){
+  retryCount = retryCount || 0;
   var el=document.getElementById('blist');
-  if(r.error||!r.data||!r.data.length){el.innerHTML='<p style="color:#6b7280;text-align:center;padding:30px 0">No batches yet. Add your first one!</p>';return}
+  var r;
+  try{
+    r=await S.from('batches').select('*').eq('farmer_id',U.id).order('created_at',{ascending:false});
+  }catch(networkErr){
+    r={error:networkErr};
+  }
+  if(r.error){
+    if(retryCount<3){ setTimeout(function(){loadBatches(retryCount+1)},1500); return; }
+    el.innerHTML='<div style="text-align:center;padding:30px 0"><p style="color:#9ca3af;font-size:.85rem;margin-bottom:10px">Connection trouble loading your batches.</p><button onclick="loadBatches()" style="background:#013220;color:#4ade80;border:1px solid #4ade80;padding:8px 16px;border-radius:8px;font-size:.8rem;cursor:pointer">🔄 Retry</button></div>';
+    return;
+  }
+  if(!r.data||!r.data.length){el.innerHTML='<p style="color:#6b7280;text-align:center;padding:30px 0">No batches yet. Add your first one!</p>';return}
   el.innerHTML=r.data.map(function(b){
     return '<div class="batch">'+
       '<h3>'+b.farm_name+'</h3>'+
